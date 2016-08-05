@@ -59,11 +59,14 @@
 #include "stdafx.h"
 
 #include <LandmarkDetectorModel.h>
-
+#ifdef WITH_QT
+#include <QFileInfo>
+#include <QString>
+#else
 // Boost includes
 #include <filesystem.hpp>
 #include <filesystem/fstream.hpp>
-
+#endif
 // TBB includes
 #include <tbb/tbb.h>
 
@@ -271,7 +274,11 @@ void CLNF::Read_CLNF(string clnf_location)
 	vector<string> ccnf_expert_locations;
 
 	// The other module locations should be defined as relative paths from the main model
+#ifdef WITH_QT
+    string root = QFileInfo(QString::fromStdString(clnf_location)).path().toStdString();
+#else
 	boost::filesystem::path root = boost::filesystem::path(clnf_location).parent_path();
+#endif
 
 	// The main file contains the references to other files
 	while (!locations.eof())
@@ -299,7 +306,11 @@ void CLNF::Read_CLNF(string clnf_location)
 		}
 
 		// append the lovstion to root location (boost syntax)
+#ifdef WITH_QT
+        location = root + "/" + location;
+#else
 		location = (root / location).string();
+#endif
 				
 		if (module.compare("PDM") == 0) 
 		{            
@@ -364,7 +375,11 @@ void CLNF::Read(string main_location)
 	string line;
 	
 	// The other module locations should be defined as relative paths from the main model
-	boost::filesystem::path root = boost::filesystem::path(main_location).parent_path();	
+#ifdef WITH_QT
+    string root = QFileInfo(QString::fromStdString(main_location)).path().toStdString();
+#else
+    boost::filesystem::path root = boost::filesystem::path(main_location).parent_path();
+#endif
 
 	// The main file contains the references to other files
 	while (!locations.eof())
@@ -388,7 +403,11 @@ void CLNF::Read(string main_location)
 		}
 
 		// append to root
-		location = (root / location).string();
+#ifdef WITH_QT
+        location = root + "/" + location;
+#else
+        location = (root / location).string();
+#endif
 		if (module.compare("LandmarkDetector") == 0) 
 		{ 
 			cout << "Reading the landmark detector module from: " << location << endl;

@@ -58,6 +58,8 @@
 
 #include "FaceAnalyser.h"
 
+
+
 // OpenCV includes
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc.hpp>
@@ -67,12 +69,16 @@
 #include <iostream>
 
 #include <string>
-
+#ifdef WITH_QT
+#include <QFileInfo>
+#include <QString>
+#else
 // Boost includes
 #include <filesystem.hpp>
 #include <filesystem/fstream.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/split.hpp>
+#endif
 
 // Local includes
 #include "LandmarkCoreIncludes.h"
@@ -1139,9 +1145,12 @@ void FaceAnalyser::ReadAU(std::string au_model_location)
 
 	string line;
 	
-	// The other module locations should be defined as relative paths from the main model
-	boost::filesystem::path root = boost::filesystem::path(au_model_location).parent_path();		
-	
+	// The other module locations should be defined as relative paths from the main model	
+#ifdef WITH_QT
+    string root = QFileInfo(QString::fromStdString(au_model_location)).path().toStdString();
+#else
+    boost::filesystem::path root = boost::filesystem::path(au_model_location).parent_path();
+#endif
 	// The main file contains the references to other files
 	while (!locations.eof())
 	{ 
@@ -1171,11 +1180,18 @@ void FaceAnalyser::ReadAU(std::string au_model_location)
 			}
 		}
 		vector<string> au_names;
+#ifdef WITH_QT
+        QString qname=QString::fromStdString(name);
+        QStringList qnameList = qname.split(',', QString::SkipEmptyParts);
+        for(QString &s:qnameList)
+            au_names.push_back(s.toStdString());
+        location = root + "/" + location;
+#else
 		boost::split(au_names, name, boost::is_any_of(","));
 
 		// append the lovstion to root location (boost syntax)
 		location = (root / location).string();
-				
+#endif
 		ReadRegressor(location, au_names);
 	}
   

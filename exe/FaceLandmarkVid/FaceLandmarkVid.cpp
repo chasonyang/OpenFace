@@ -69,10 +69,14 @@
 #include <opencv2/videoio/videoio_c.h>  // Video write
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
-
+#ifdef WITH_QT
+#include <QFileInfo>
+#include <QString>
+#else
 // Boost includes
 #include <filesystem.hpp>
 #include <filesystem/fstream.hpp>
+#endif
 
 #define INFO_STREAM( stream ) \
 std::cout << stream << std::endl
@@ -244,13 +248,18 @@ int main (int argc, char **argv)
 		cv::VideoCapture video_capture;
 		if( current_file.size() > 0 )
 		{
+#ifdef WITH_QT
+            if(QFileInfo::exists(QString::fromStdString(current_file)))
+#else
 			if (!boost::filesystem::exists(current_file))
+#endif
 			{
 				FATAL_STREAM("File does not exist");
 				return 1;
 			}
-
+#ifndef WITH_QT
 			current_file = boost::filesystem::path(current_file).generic_string();
+#endif
 
 			INFO_STREAM( "Attempting to read from file: " << current_file );
 			video_capture = cv::VideoCapture( current_file );

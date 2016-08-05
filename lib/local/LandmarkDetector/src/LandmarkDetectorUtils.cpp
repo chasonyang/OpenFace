@@ -64,12 +64,16 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/calib3d.hpp>
-
+#ifdef WITH_QT
+#include <QFileInfo>
+#include <QDir>
+#include <QString>
+#else
 // Boost includes
 #include <filesystem.hpp>
 #include <filesystem/fstream.hpp>
-
 using namespace boost::filesystem;
+#endif
 
 using namespace std;
 
@@ -83,16 +87,30 @@ void create_directory_from_file(string output_path)
 	// Creating the right directory structure
 	
 	// First get rid of the file
+#ifdef WITH_QT
+    QFileInfo p0(QString::fromStdString(output_path));
+    QFileInfo p(p0.path());
+
+    if(!p.exists()){
+        QString qs=p.path();
+        QDir d(qs);
+        bool success = d.mkpath(qs);
+        if(!success)
+            cout << "Failed to create a directory... " << qs.toStdString() << endl;
+    }
+#else
 	auto p = path(path(output_path).parent_path());
 
 	if(!p.empty() && !boost::filesystem::exists(p))		
 	{
 		bool success = boost::filesystem::create_directories(p);
+
 		if(!success)
 		{
 			cout << "Failed to create a directory... " << p.string() << endl;
 		}
 	}
+#endif
 }
 
 // Useful utility for creating directories for storing the output files
@@ -102,6 +120,17 @@ void create_directories(string output_path)
 	// Creating the right directory structure
 	
 	// First get rid of the file
+#ifdef WITH_QT
+    QFileInfo p(QString::fromStdString(output_path));
+
+    if(!p.exists()){
+        QString qs=p.path();
+        QDir d(qs);
+        bool success = d.mkpath(qs);
+        if(!success)
+            cout << "Failed to create a directory... " << qs.toStdString() << endl;
+    }
+#else
 	auto p = path(output_path);
 
 	if(!p.empty() && !boost::filesystem::exists(p))		
@@ -112,6 +141,7 @@ void create_directories(string output_path)
 			cout << "Failed to create a directory... " << p.string() << endl;
 		}
 	}
+#endif
 }
 
 // Extracting the following command line arguments -f, -fd, -op, -of, -ov (and possible ordered repetitions)
@@ -130,9 +160,11 @@ void get_video_input_output_params(vector<string> &input_video_files, vector<str
 
 	string input_root = "";
 	string output_root = "";
-
+#ifdef WITH_QT
+    string separator = "/";
+#else
 	string separator = string(1, boost::filesystem::path::preferred_separator);
-
+#endif
 	// First check if there is a root argument (so that videos and outputs could be defined more easilly)
 	for(size_t i = 0; i < arguments.size(); ++i)
 	{
@@ -272,8 +304,11 @@ void get_image_input_output_params(vector<string> &input_image_files, vector<str
 	string input_root = "";
 	string output_root = "";
 
-	string separator = string(1, boost::filesystem::path::preferred_separator);
-
+#ifdef WITH_QT
+    string separator = "/";
+#else
+    string separator = string(1, boost::filesystem::path::preferred_separator);
+#endif
 	// First check if there is a root argument (so that videos and outputs could be defined more easilly)
 	for (size_t i = 0; i < arguments.size(); ++i)
 	{
@@ -314,7 +349,21 @@ void get_image_input_output_params(vector<string> &input_image_files, vector<str
 		}
 		else if (arguments[i].compare("-fdir") == 0) 
 		{                    
-
+#ifdef WITH_QT
+            QFileInfo image_directory(QString::fromStdString(arguments[i+1]));
+                if(image_directory.exists() && image_directory.isDir()){
+                    QDir dir(QString::fromStdString(arguments[i+1]));
+                    dir.setNameFilters(QStringList()<<"*.png"<<"*.jpg"<<"*.bmp");
+                    QStringList file_in_directory=dir.entryList();
+                    for(QString &file_name:file_in_directory){
+                        QFileInfo file(dir,file_name);
+                        input_image_files.push_back(file.filePath().toStdString());
+                        QFileInfo bbox(file.baseName()+".txt");
+                        if(bbox.exists())
+                        {
+                            {
+                            std::ifstream in_bbox(bbox.filePath().toStdString().c_str(), ios_base::in);
+#else
 			// parse the -fdir directory by reading in all of the .png and .jpg files in it
 			path image_directory (arguments[i+1]); 
 
@@ -323,7 +372,6 @@ void get_image_input_output_params(vector<string> &input_image_files, vector<str
 				 // does the file exist and is it a directory
 				if (exists(image_directory) && is_directory(image_directory))   
 				{
-
 					vector<path> file_in_directory;                                
 					copy(directory_iterator(image_directory), directory_iterator(), back_inserter(file_in_directory));
 					
@@ -349,7 +397,7 @@ void get_image_input_output_params(vector<string> &input_image_files, vector<str
 							{
 
 								std::ifstream in_bbox(bbox.string().c_str(), ios_base::in);
-
+#endif
 								double min_x, min_y, max_x, max_y;
 
 								in_bbox >> min_x >> min_y >> max_x >> max_y;
@@ -361,12 +409,13 @@ void get_image_input_output_params(vector<string> &input_image_files, vector<str
 						}
 					}
 				}
+#ifndef WITH_QT
 			}
 			catch (const filesystem_error& ex)
 			{
 				cout << ex.what() << '\n';
 			}
-
+#endif
 			valid[i] = false;
 			valid[i+1] = false;		
 			i++;
@@ -423,11 +472,17 @@ void get_image_input_output_params(vector<string> &input_image_files, vector<str
 	{
 		for(size_t i=0; i < input_image_files.size(); ++i)
 		{
+#ifdef WITH_QT
+            QFileInfo image_loc(QString::fromStdString(input_image_files[i]));
+            QString fname=image_loc.baseName()+".bmp";
+            output_image_files.push_back(out_img_dir + "/" +fname.toStdString());
+#else
 			path image_loc(input_image_files[i]);
 
 			path fname = image_loc.filename();
 			fname = fname.replace_extension("bmp");
 			output_image_files.push_back(out_img_dir + "/" + fname.string());
+#endif
 			
 		}
 		if(!input_image_files.empty())
@@ -440,11 +495,17 @@ void get_image_input_output_params(vector<string> &input_image_files, vector<str
 	{
 		for(size_t i=0; i < input_image_files.size(); ++i)
 		{
+#ifdef WITH_QT
+            QFileInfo image_loc(QString::fromStdString(input_image_files[i]));
+            QString fname=image_loc.baseName()+".pts";
+            output_feature_files.push_back(out_pts_dir + "/" +fname.toStdString());
+#else
 			path image_loc(input_image_files[i]);
 
 			path fname = image_loc.filename();
 			fname = fname.replace_extension("pts");
-			output_feature_files.push_back(out_pts_dir + "/" + fname.string());			
+            output_feature_files.push_back(out_pts_dir + "/" + fname.string());
+#endif
 		}
 		create_directory_from_file(output_feature_files[0]);
 	}
@@ -453,11 +514,17 @@ void get_image_input_output_params(vector<string> &input_image_files, vector<str
 	{
 		for (size_t i = 0; i < input_image_files.size(); ++i)
 		{
+#ifdef WITH_QT
+            QFileInfo image_loc(QString::fromStdString(input_image_files[i]));
+            QString fname=image_loc.baseName()+".pose";
+            output_pose_files.push_back(out_pts_dir + "/" +fname.toStdString());
+#else
 			path image_loc(input_image_files[i]);
 
 			path fname = image_loc.filename();
 			fname = fname.replace_extension("pose");
 			output_pose_files.push_back(out_pose_dir + "/" + fname.string());
+#endif
 		}
 		create_directory_from_file(output_pose_files[0]);
 	}

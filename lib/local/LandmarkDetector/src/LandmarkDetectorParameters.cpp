@@ -57,12 +57,19 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
-
+#ifdef WITH_QT
+#include <QFileInfo>
+#include <QString>
+#endif
 #include "LandmarkDetectorParameters.h"
-
+#ifdef WITH_QT
+#include <QFileInfo>
+#include <QString>
+#else
 // Boost includes
 #include <filesystem.hpp>
 #include <filesystem/fstream.hpp>
+#endif
 
 // System includes
 #include <sstream>
@@ -84,8 +91,11 @@ FaceModelParameters::FaceModelParameters(vector<string> &arguments)
 	init();
 
 	// First element is reserved for the executable location (useful for finding relative model locs)
-	boost::filesystem::path root = boost::filesystem::path(arguments[0]).parent_path();
-
+#ifdef WITH_QT
+    string root = QFileInfo(QString::fromStdString(arguments[0])).path().toStdString();
+#else
+    boost::filesystem::path root = boost::filesystem::path(arguments[0]).parent_path();
+#endif
 	bool* valid = new bool[arguments.size()];
 	valid[0] = true;
 
@@ -200,14 +210,23 @@ FaceModelParameters::FaceModelParameters(vector<string> &arguments)
 	}
 
 	// Make sure model_location is valid
-	if (!boost::filesystem::exists(boost::filesystem::path(model_location)))
-	{
-		model_location = (root / model_location).string();
-		if (!boost::filesystem::exists(boost::filesystem::path(model_location)))
-		{
-			std::cout << "Could not find the landmark detection model to load" << std::endl;
-		}
-	}
+
+#ifdef WITH_QT
+    if (!QFileInfo::exists(QString::fromStdString(model_location)))
+    {
+        model_location = root + "/" + model_location;
+        if(!QFileInfo::exists(QString::fromStdString(model_location)))
+        {
+#else
+    if (!boost::filesystem::exists(boost::filesystem::path(model_location)))
+    {
+        model_location = (root / model_location).string();
+        if (!boost::filesystem::exists(boost::filesystem::path(model_location)))
+        {
+#endif
+            std::cout << "Could not find the landmark detection model to load" << std::endl;
+        }
+    }
 
 }
 

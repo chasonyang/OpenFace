@@ -28,8 +28,10 @@
 #define _USE_MATH_DEFINES
 #include <cmath>
 
+#ifndef WITH_QT
 // Boost stuff
 #include <filesystem.hpp>
 #include <filesystem/fstream.hpp>
+#endif
 
 #endif
