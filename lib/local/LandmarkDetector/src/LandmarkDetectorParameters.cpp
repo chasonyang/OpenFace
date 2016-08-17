@@ -286,6 +286,7 @@ void FaceModelParameters::init()
 #else
 	face_detector_location = "classifiers/haarcascade_frontalface_alt.xml";
 #endif
+    face_detector_npd_location = "classifiers/model_frontal.bin";
 
 	quiet_mode = false;
 

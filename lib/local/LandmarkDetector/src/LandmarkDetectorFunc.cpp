@@ -68,6 +68,10 @@
 // System includes
 #include <vector>
 
+#ifdef WITH_QT_DEBUG
+#include <QTime>
+#include <QDebug>
+#endif
 using namespace LandmarkDetector;
 
 // Getting a head pose estimate from the currently detected landmarks (rotation with respect to point camera)
@@ -291,7 +295,10 @@ bool LandmarkDetector::DetectLandmarksInVideo(const cv::Mat_<uchar> &grayscale_i
 
 	// Indicating that this is a first detection in video sequence or after restart
 	bool initial_detection = !clnf_model.tracking_initialised;
-
+#ifdef WITH_QT_DEBUG
+            QTime time;
+            time.start();
+#endif
 	// Only do it if there was a face detection at all
 	if(clnf_model.tracking_initialised)
 	{
@@ -313,6 +320,9 @@ bool LandmarkDetector::DetectLandmarksInVideo(const cv::Mat_<uchar> &grayscale_i
 		}
 
 		bool track_success = clnf_model.DetectLandmarks(grayscale_image, depth_image, params);
+#ifdef WITH_QT_DEBUG
+            qDebug()<<"tracking DetectLandmarks. time cost:"<<time.elapsed();
+#endif
 		if(!track_success)
 		{
 			// Make a record that tracking failed
@@ -340,7 +350,12 @@ bool LandmarkDetector::DetectLandmarksInVideo(const cv::Mat_<uchar> &grayscale_i
 			clnf_model.face_detector_HAAR.load(params.face_detector_location);
 			clnf_model.face_detector_location = params.face_detector_location;
 		}
-
+#ifdef USE_NPD
+        if(!clnf_model.face_detector_NPD.inited()){
+            clnf_model.face_detector_NPD.load(params.face_detector_npd_location);
+            clnf_model.face_detector_npd_location = params.face_detector_npd_location;
+        }
+#endif
 		cv::Point preference_det(-1, -1);
 		if(clnf_model.preference_det.x != -1 && clnf_model.preference_det.y != -1)
 		{
@@ -349,20 +364,29 @@ bool LandmarkDetector::DetectLandmarksInVideo(const cv::Mat_<uchar> &grayscale_i
 			clnf_model.preference_det = cv::Point(-1, -1);
 		}
 
-		bool face_detection_success;
-		if(params.curr_face_detector == FaceModelParameters::HOG_SVM_DETECTOR)
-		{
-			double confidence;
-			face_detection_success = LandmarkDetector::DetectSingleFaceHOG(bounding_box, grayscale_image, clnf_model.face_detector_HOG, confidence, preference_det);
-		}
-		else if(params.curr_face_detector == FaceModelParameters::HAAR_DETECTOR)
-		{
-			face_detection_success = LandmarkDetector::DetectSingleFace(bounding_box, grayscale_image, clnf_model.face_detector_HAAR, preference_det);
-		}
+        bool face_detection_success = false;
+        if(params.curr_face_detector == FaceModelParameters::HOG_SVM_DETECTOR)
+        {
+            double confidence;
+            face_detection_success = LandmarkDetector::DetectSingleFaceHOG(bounding_box, grayscale_image, clnf_model.face_detector_HOG, confidence, preference_det);
+        }
+        else if(params.curr_face_detector == FaceModelParameters::HAAR_DETECTOR)
+        {
+            face_detection_success = LandmarkDetector::DetectSingleFace(bounding_box, grayscale_image, clnf_model.face_detector_HAAR, preference_det);
+        }
+#ifdef USE_NPD
+        else if(params.curr_face_detector == FaceModelParameters::NPD_DETECTOR){
+            double confidence;
+            face_detection_success = LandmarkDetector::DetectSingleFaceNPD(bounding_box, grayscale_image, clnf_model.face_detector_NPD, confidence, preference_det);
+        }
+#endif
 
 		// Attempt to detect landmarks using the detected face (if unseccessful the detection will be ignored)
 		if(face_detection_success)
 		{
+#ifdef WITH_QT_DEBUG
+            qDebug()<<"init tracking detection success. time cost:"<<time.elapsed();
+#endif
 			// Indicate that tracking has started as a face was detected
 			clnf_model.tracking_initialised = true;
 						
@@ -379,10 +403,14 @@ bool LandmarkDetector::DetectLandmarksInVideo(const cv::Mat_<uchar> &grayscale_i
 
 			// Make sure the search size is large
 			params.window_sizes_current = params.window_sizes_init;
-
+#ifdef WITH_QT_DEBUG
+                qDebug()<<"init tracking CalcParams.time cost:"<<time.elapsed();
+#endif
 			// Do the actual landmark detection (and keep it only if successful)
 			bool landmark_detection_success = clnf_model.DetectLandmarks(grayscale_image, depth_image, params);
-
+#ifdef WITH_QT_DEBUG
+                qDebug()<<"init tracking DetectLandmarks. time cost:"<<time.elapsed();
+#endif
 			// If landmark reinitialisation unsucessful continue from previous estimates
 			// if it's initial detection however, do not care if it was successful as the validator might be wrong, so continue trackig
 			// regardless
@@ -396,13 +424,18 @@ bool LandmarkDetector::DetectLandmarksInVideo(const cv::Mat_<uchar> &grayscale_i
 				clnf_model.model_likelihood = likelihood_init;
 				clnf_model.detected_landmarks = detected_landmarks_init.clone();
 				clnf_model.landmark_likelihoods = landmark_likelihoods_init.clone();
-
+#ifdef WITH_QT_DEBUG
+                qDebug()<<"init tracking false.time cost:"<<time.elapsed();
+#endif
 				return false;
 			}
 			else
 			{
 				clnf_model.failures_in_a_row = -1;				
 				UpdateTemplate(grayscale_image, clnf_model);
+#ifdef WITH_QT_DEBUG
+                qDebug()<<"init tracking .time cost:"<<time.elapsed();
+#endif
 				return true;
 			}
 		}
@@ -565,7 +598,13 @@ bool LandmarkDetector::DetectLandmarksInImage(const cv::Mat_<uchar> &grayscale_i
 		clnf_model.face_detector_HAAR.load(params.face_detector_location);
 		clnf_model.face_detector_location = params.face_detector_location;
 	}
-		
+#ifdef USE_NPD
+    if(!clnf_model.face_detector_NPD.inited())
+    {
+        clnf_model.face_detector_NPD.load(params.face_detector_npd_location);
+        clnf_model.face_detector_npd_location = params.face_detector_npd_location;
+    }
+#endif
 	// Detect the face first
 	if(params.curr_face_detector == FaceModelParameters::HOG_SVM_DETECTOR)
 	{

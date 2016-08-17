@@ -1568,6 +1568,110 @@ bool DetectSingleFaceHOG(cv::Rect_<double>& o_region, const cv::Mat_<uchar>& int
 	return detect_success;
 }
 
+bool DetectFacesNPD(vector<cv::Rect_<double> > &o_regions, const cv::Mat_<uchar> &intensity, std::vector<double> &confidences)
+{
+    NPDDetector classifier("./classifiers/model_frontal.bin");
+    if(classifier.inited())
+    {
+        cout << "Couldn't load the NPD cascade classifier" << endl;
+        return false;
+    }
+    else
+    {
+        return DetectFacesNPD(o_regions, intensity, classifier,confidences);
+    }
+}
+
+bool DetectFacesNPD(vector<cv::Rect_<double> > &o_regions, const cv::Mat_<uchar> &intensity, NPDDetector &classifier, std::vector<double> &confidences)
+{
+    vector<cv::Rect> face_detections;
+    std::cout << "detect" << std::endl;
+    classifier.detect(intensity, face_detections,confidences,70);
+    std::cout << "detect end"<< std::endl;
+    // Convert from int bounding box do a double one with corrections
+    o_regions.resize(face_detections.size());
+    for( size_t face = 0; face < o_regions.size(); ++face)
+    {
+        // TODO
+        // CLNF detector expects the bounding box to encompass from eyebrow to chin in y, and from cheeck outline to cheeck outline in x, so we need to compensate
+
+        // The scalings were learned using the Face Detections on LFPW, Helen, AFW and iBUG datasets, using ground truth and detections from openCV
+
+        // Correct for scale
+        o_regions[face].width = face_detections[face].width * 0.8924;
+        o_regions[face].height = face_detections[face].height * 0.8676;
+        // Move the face slightly to the right (as the width was made smaller)
+        o_regions[face].x = face_detections[face].x + 0.0578 * face_detections[face].width;
+        // Shift face down as OpenCV Haar Cascade detects the forehead as well, and we're not interested
+        o_regions[face].y = face_detections[face].y + face_detections[face].height * 0.2166;
+    }
+    return o_regions.size() > 0;
+}
+
+bool DetectSingleFaceNPD(cv::Rect_<double> &o_region, const cv::Mat_<uchar> &intensity, NPDDetector &classifier, double &confidence, const cv::Point preference)
+{
+    // The tracker can return multiple faces
+    vector<cv::Rect_<double> > face_detections;
+    vector<double> confidences;
+
+    bool detect_success = LandmarkDetector::DetectFacesNPD(face_detections, intensity, classifier, confidences);
+
+    if(detect_success)
+    {
+
+        bool use_preferred = (preference.x != -1) && (preference.y != -1);
+
+        // keep the most confident one or the one closest to preference point if set
+        double best_so_far;
+        if(use_preferred)
+        {
+            best_so_far = sqrt((preference.x - (face_detections[0].width/2 + face_detections[0].x)) * (preference.x - (face_detections[0].width/2 + face_detections[0].x)) +
+                               (preference.y - (face_detections[0].height/2 + face_detections[0].y)) * (preference.y - (face_detections[0].height/2 + face_detections[0].y)));
+        }
+        else
+        {
+            best_so_far = confidences[0];
+        }
+        int bestIndex = 0;
+
+        for( size_t i = 1; i < face_detections.size(); ++i)
+        {
+
+            double dist;
+            bool better;
+
+            if(use_preferred)
+            {
+                dist = sqrt((preference.x - (face_detections[0].width/2 + face_detections[0].x)) * (preference.x - (face_detections[0].width/2 + face_detections[0].x)) +
+                               (preference.y - (face_detections[0].height/2 + face_detections[0].y)) * (preference.y - (face_detections[0].height/2 + face_detections[0].y)));
+                better = dist < best_so_far;
+            }
+            else
+            {
+                dist = confidences[i];
+                better = dist > best_so_far;
+            }
+
+            // Pick a closest face
+            if(better)
+            {
+                best_so_far = dist;
+                bestIndex = i;
+            }
+        }
+
+        o_region = face_detections[bestIndex];
+        confidence = confidences[bestIndex];
+    }
+    else
+    {
+        // if not detected
+        o_region = cv::Rect_<double>(0,0,0,0);
+        // A completely unreliable detection (shouldn't really matter what is returned here)
+        confidence = -2;
+    }
+    return detect_success;
+}
 //============================================================================
 // Matrix reading functionality
 //============================================================================
@@ -1655,7 +1759,7 @@ void SkipComments(std::ifstream& stream)
 	{
 		std::string skipped;
 		std::getline(stream, skipped);
-	}
+    }
 }
 
 }

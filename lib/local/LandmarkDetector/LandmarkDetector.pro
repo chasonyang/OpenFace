@@ -9,7 +9,7 @@ QT       += core
 TARGET = LandmarkDetector
 TEMPLATE = lib
 CONFIG += staticlib
-DEFINES += WITH_QT
+DEFINES += WITH_QT WITH_QT_DEBUG
 
 INCLUDEPATH += $$PWD/include \
                D:/github/OpenFace/lib/3rdParty/tbb/include/
@@ -25,7 +25,9 @@ SOURCES += \
     src/PAW.cpp \
     src/PDM.cpp \
     src/stdafx.cpp \
-    src/SVR_patch_expert.cpp
+    src/SVR_patch_expert.cpp \
+    src/npddetector.cpp \
+    src/npdmodel.cpp
 
 HEADERS += \
     include/CCNF_patch_expert.h \
@@ -39,7 +41,9 @@ HEADERS += \
     include/PAW.h \
     include/PDM.h \
     include/stdafx.h \
-    include/SVR_patch_expert.h
+    include/SVR_patch_expert.h \
+    include/npddetector.h \
+    include/npdmodel.h
 
 CONFIG +=c++11
 #-------------------------------------------------
@@ -132,6 +136,4 @@ win32{
     LIBS  += -lws2_32       \
              -lwinmm
 }
-
-LIBS+=-L"D:/tbb44_20160526oss/build/windows_ia32_gcc_mingw_release/" -ltbb
 

@@ -79,11 +79,9 @@ using namespace LandmarkDetector;
 //=============================================================================
 
 // Constructors
-// A default constructor
+// empty constructor
 CLNF::CLNF()
 {
-	FaceModelParameters parameters;
-	this->Read(parameters.model_location);
 }
 
 // Constructor from a model file
@@ -103,12 +101,19 @@ CLNF::CLNF(const CLNF& other): pdm(other.pdm), params_local(other.params_local.c
 	this->detection_certainty = other.detection_certainty;
 	this->model_likelihood = other.model_likelihood;
 	this->failures_in_a_row = other.failures_in_a_row;
-	
+
 	// Load the CascadeClassifier (as it does not have a proper copy constructor)
 	if(!face_detector_location.empty())
 	{
 		this->face_detector_HAAR.load(face_detector_location);
 	}
+#ifdef USE_NPD
+    //Todo:copy npdmodel
+    if(!face_detector_npd_location.empty())
+    {
+        this->face_detector_NPD.load(face_detector_npd_location);
+    }
+#endif
 	// Make sure the matrices are allocated properly
 	this->triangulations.resize(other.triangulations.size());
 	for(size_t i = 0; i < other.triangulations.size(); ++i)
@@ -142,6 +147,7 @@ CLNF & CLNF::operator= (const CLNF& other)
 		patch_experts = Patch_experts(other.patch_experts);
 		landmark_validator = DetectionValidator(other.landmark_validator);
 		face_detector_location = other.face_detector_location;
+        face_detector_npd_location = other.face_detector_npd_location;
 
 		this->detection_success = other.detection_success;
 		this->tracking_initialised = other.tracking_initialised;
@@ -156,6 +162,13 @@ CLNF & CLNF::operator= (const CLNF& other)
 		{
 			this->face_detector_HAAR.load(face_detector_location);
 		}
+        //Todo:copy npdmodel
+#ifdef USE_NPD
+        if(!face_detector_npd_location.empty())
+        {
+            this->face_detector_NPD.load(face_detector_npd_location);
+        }
+#endif
 		// Make sure the matrices are allocated properly
 		this->triangulations.resize(other.triangulations.size());
 		for(size_t i = 0; i < other.triangulations.size(); ++i)
@@ -200,6 +213,7 @@ CLNF::CLNF(const CLNF&& other)
 	patch_experts = other.patch_experts;
 	landmark_validator = other.landmark_validator;
 	face_detector_location = other.face_detector_location;
+    face_detector_npd_location = other.face_detector_npd_location;
 
 	face_detector_HAAR = other.face_detector_HAAR;
 
@@ -235,6 +249,7 @@ CLNF & CLNF::operator= (const CLNF&& other)
 	patch_experts = other.patch_experts;
 	landmark_validator = other.landmark_validator;
 	face_detector_location = other.face_detector_location;
+    face_detector_npd_location = other.face_detector_npd_location;
 
 	face_detector_HAAR = other.face_detector_HAAR;
 

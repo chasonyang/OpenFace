@@ -71,7 +71,7 @@
 #include "Patch_experts.h"
 #include "LandmarkDetectionValidator.h"
 #include "LandmarkDetectorParameters.h"
-
+#include <npddetector.h>
 using namespace std;
 
 namespace LandmarkDetector
@@ -116,6 +116,9 @@ public:
 	// A HOG SVM-struct based face detector
 	dlib::frontal_face_detector face_detector_HOG;
 
+    //Normalized Pixel Difference (NPD) face detector
+    NPDDetector             face_detector_NPD;
+    string                  face_detector_npd_location;
 
 	// Validate if the detected landmarks are correct using an SVR regressor
 	DetectionValidator	landmark_validator; 

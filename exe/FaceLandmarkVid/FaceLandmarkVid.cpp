@@ -72,6 +72,7 @@
 #ifdef WITH_QT
 #include <QFileInfo>
 #include <QString>
+#include <QtCore>
 #else
 // Boost includes
 #include <filesystem.hpp>
@@ -127,7 +128,11 @@ void visualise_tracking(cv::Mat& captured_image, cv::Mat_<float>& depth_image, c
 	// Only draw if the reliability is reasonable, the value is slightly ad-hoc
 	if (detection_certainty < visualisation_boundary)
 	{
-		LandmarkDetector::Draw(captured_image, face_model);
+//		LandmarkDetector::Draw(captured_image, face_model);
+        int idx = face_model.patch_experts.GetViewIdx(face_model.params_global, 0);
+
+        // Because we only draw visible points, need to find which points patch experts consider visible at a certain orientation
+        LandmarkDetector::Draw(captured_image, face_model.detected_landmarks, face_model.patch_experts.visibilities[0][idx]);
 
 		double vis_certainty = detection_certainty;
 		if (vis_certainty > 1)
@@ -138,12 +143,12 @@ void visualise_tracking(cv::Mat& captured_image, cv::Mat_<float>& depth_image, c
 		vis_certainty = (vis_certainty + 1) / (visualisation_boundary + 1);
 
 		// A rough heuristic for box around the face width
-		int thickness = (int)std::ceil(2.0* ((double)captured_image.cols) / 640.0);
+        //int thickness = (int)std::ceil(2.0* ((double)captured_image.cols) / 640.0);
 
-		cv::Vec6d pose_estimate_to_draw = LandmarkDetector::GetCorrectedPoseWorld(face_model, fx, fy, cx, cy);
+        //cv::Vec6d pose_estimate_to_draw = LandmarkDetector::GetCorrectedPoseWorld(face_model, fx, fy, cx, cy);
 
 		// Draw it in reddish if uncertain, blueish if certain
-		LandmarkDetector::DrawBox(captured_image, pose_estimate_to_draw, cv::Scalar((1 - vis_certainty)*255.0, 0, vis_certainty * 255), thickness, fx, fy, cx, cy);
+        //LandmarkDetector::DrawBox(captured_image, pose_estimate_to_draw, cv::Scalar((1 - vis_certainty)*255.0, 0, vis_certainty * 255), thickness, fx, fy, cx, cy);
 		
 		if (det_parameters.track_gaze && detection_success && face_model.eye_model)
 		{
@@ -193,6 +198,10 @@ int main (int argc, char **argv)
 
 	LandmarkDetector::FaceModelParameters det_parameters(arguments);
 
+    det_parameters.curr_face_detector=LandmarkDetector::FaceModelParameters::FaceDetector::HAAR_DETECTOR;
+    string model_dir="C:/InsightMirror/data/";
+    det_parameters.model_location=model_dir+"model/main_clnf_general.txt";
+    det_parameters.face_detector_location=model_dir+"classifiers/haarcascade_frontalface_alt.xml";
 	// Get the input output file parameters
 	
 	// Indicates that rotation should be with respect to world or camera coordinates
@@ -201,6 +210,9 @@ int main (int argc, char **argv)
 	
 	// The modules that are being used for tracking
 	LandmarkDetector::CLNF clnf_model(det_parameters.model_location);	
+    qDebug()<<"load..."<<clnf_model.face_detector_HAAR.load("haarcascade_frontalface_alt.xml");
+    qDebug()<<clnf_model.face_detector_HAAR.empty();
+
 
 	// Grab camera parameters, if they are not defined (approximate values will be used)
 	float fx = 0, fy = 0, cx = 0, cy = 0;
@@ -223,7 +235,7 @@ int main (int argc, char **argv)
 	bool done = false;	
 	int f_n = -1;
 	
-	det_parameters.track_gaze = true;
+//    det_parameters.track_gaze = false;
 
 	while(!done) // this is not a for loop as we might also be reading from a webcam
 	{
@@ -350,14 +362,15 @@ int main (int argc, char **argv)
 					WARN_STREAM( "Can't find depth image" );
 				}
 			}
-			
+            QTime time;
+            time.start();
 			// The actual facial landmark detection / tracking
 			bool detection_success = LandmarkDetector::DetectLandmarksInVideo(grayscale_image, depth_image, clnf_model, det_parameters);
-			
+
 			// Visualising the results
 			// Drawing the facial landmarks on the face and the bounding box around it if tracking is successful and initialised
 			double detection_certainty = clnf_model.detection_certainty;
-
+            qDebug()<<time.elapsed()<<detection_certainty;
 			// Gaze tracking, absolute gaze direction
 			cv::Point3f gazeDirection0(0, 0, -1);
 			cv::Point3f gazeDirection1(0, 0, -1);
